@@ -5,13 +5,14 @@ import rospy
 from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Int16MultiArray
+from std_msgs.msg import Int16MultiArray,Float32
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from tf.broadcaster import TransformBroadcaster
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 from math import sin, cos
 from mecanum_drive.pose import Pose
 from mecanum_drive import odometry
+import math
 
 ODOM_POSE_COVARIANCE = [1, 0, 0, 0, 0, 0, 
                         0, 1, 0, 0, 0, 0,
@@ -34,6 +35,7 @@ class OdometryNode:
 
     def main(self):
         self.odomPub = rospy.Publisher('odom', Odometry, queue_size=10)
+        self.thetaPub = rospy.Publisher('omega', Float32, queue_size=10)
         self.tfPub = TransformBroadcaster()
 
         rospy.init_node('mecanum_drive_odometry')
@@ -43,6 +45,7 @@ class OdometryNode:
         rospy.Subscriber("wheel_ticks", Int16MultiArray, self.ticksCallback)
         rospy.Subscriber("initialpose", PoseWithCovarianceStamped,
                          self.on_initial_pose)
+        rospy.Subscriber("imu_yaw_deg",Float32,self.yaw_recieved)
 
         self.ticksPerMeter = int(rospy.get_param('~ticks_per_meter'))
         self.wheelSeparation = float(rospy.get_param('~wheel_separation'))
@@ -65,11 +68,17 @@ class OdometryNode:
             self.publish()
             rate.sleep()
 
+    def yaw_recieved(self,yaw_msg:Float32):
+        self.odometry.setYawAngleDeg(yaw_msg.data)
+    
     def publish(self):
         self.odometry.updatePose(rospy.get_time())
         now = rospy.get_rostime()
         pose = self.odometry.getPose()
 
+        omegaMsg = Float32()
+        omegaMsg.data = pose.theta * 180 / (math.pi)
+        self.thetaPub.publish(omegaMsg)
         q = quaternion_from_euler(0, 0, pose.theta)
         
         if self.publishTF == 'true':

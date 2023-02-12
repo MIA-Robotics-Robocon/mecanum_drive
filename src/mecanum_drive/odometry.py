@@ -15,6 +15,11 @@ class Odometry:
         self.rearRightEncoder = Encoder()
         self.pose = Pose()
         self.lastTime = 0
+        self.lastYawDeg = 0
+        self.currentYawDeg = 0
+        
+    def setYawAngleDeg(self,yaw_angle):
+        self.currentYawDeg = yaw_angle
 
     def setWheelSeparation(self, separation):
         self.wheelSeparation = separation
@@ -52,8 +57,8 @@ class Odometry:
 
         deltaXTravel = (frontLeftTravel + frontRightTravel + rearLeftTravel + rearRightTravel) / 4.0
         deltaYTravel = (-frontLeftTravel + frontRightTravel + rearLeftTravel - rearRightTravel) / 4.0
-        deltaTheta = (-frontLeftTravel + frontRightTravel - rearLeftTravel + rearRightTravel) / (2 * (self.wheelSeparation + self.wheelSeparationLength))
-
+        # deltaTheta = (-frontLeftTravel + frontRightTravel - rearLeftTravel + rearRightTravel) / (2 * (self.wheelSeparation + self.wheelSeparationLength))
+        deltaTheta = (self.currentYawDeg - self.lastYawDeg) * (pi / 180) ## in rads
         self.pose.x += deltaXTravel*cos(self.pose.theta) - deltaYTravel*sin(self.pose.theta)
         self.pose.y += deltaYTravel*cos(self.pose.theta) + deltaXTravel*sin(self.pose.theta)
         self.pose.theta = (self.pose.theta + deltaTheta) % (2*pi)
@@ -62,6 +67,7 @@ class Odometry:
         self.pose.thetaVel = deltaTheta / deltaTime if deltaTime > 0 else 0.
 
         self.lastTime = newTime
+        self.lastYawDeg = self.currentYawDeg
 
     def getPose(self):
         return self.pose;
